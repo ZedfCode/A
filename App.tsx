@@ -1,194 +1,197 @@
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import Sidebar from './components/Sidebar';
+import React, { useState, useEffect, useRef } from 'react';
 import TaskCard from './components/TaskCard';
 import NewTaskModal from './components/NewTaskModal';
-import SettingsModal from './components/SettingsModal';
 import ConsoleDrawer from './components/ConsoleDrawer';
-import { DownloadTask, DownloadStatus, AppSettings, SystemLog } from './types';
-import { t } from './services/i18n';
+import { DownloadTask, DownloadStatus, FileType, SystemLog } from './types';
+import { ICONS } from './constants';
 
 const App: React.FC = () => {
-  const [settings, setSettings] = useState<AppSettings>(() => {
-    const saved = localStorage.getItem('smartspeed_settings');
-    return saved ? JSON.parse(saved) : {
-      language: 'zh',
-      accentColor: 'blue',
-      visualEnvironment: 'monolith_dark',
-      globalMaxThreads: 512,
-      totalDiskLimit: 1024 * 1024 * 1024 * 100, // 100GB
-      defaultSavePath: 'Downloads/SmartSpeed',
-      aiEnabledByDefault: true,
-    };
-  });
-
-  const [tasks, setTasks] = useState<DownloadTask[]>(() => {
-    const saved = localStorage.getItem('smartspeed_tasks');
-    // 注意：fileHandle 无法序列化，恢复时需标记为待重连
-    return saved ? JSON.parse(saved).map((t: any) => ({
-      ...t,
-      status: t.status === DownloadStatus.DOWNLOADING ? DownloadStatus.PAUSED : t.status
-    })) : [];
-  });
-
+  const [tasks, setTasks] = useState<DownloadTask[]>([]);
   const [logs, setLogs] = useState<SystemLog[]>([]);
-  const [filter, setFilter] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isConsoleOpen, setIsConsoleOpen] = useState(false);
-  const [globalSpeedHistory, setGlobalSpeedHistory] = useState<number[]>(new Array(60).fill(0));
+  
+  // 运行中的文件句柄映射（因为句柄无法持久化到 localStorage）
+  const fileHandles = useRef<Map<string, any>>(new Map());
+  const abortControllers = useRef<Map<string, AbortController[]>>(new Map());
 
-  const addLog = useCallback((level: SystemLog['level'], message: string) => {
+  const addLog = (message: string, level: SystemLog['level'] = 'info') => {
     setLogs(prev => [...prev, {
-      id: Math.random().toString(36).substr(2, 9),
+      id: Math.random().toString(36),
       timestamp: Date.now(),
       level,
       message
     }].slice(-100));
-  }, []);
+  };
 
-  const diskUsage = useMemo(() => tasks.reduce((acc, t) => acc + t.downloaded, 0), [tasks]);
+  // 超线程下载逻辑
+  const startSmartDownload = async (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    const handle = fileHandles.current.get(taskId);
+    if (!task || !handle) {
+      addLog(`任务 ${taskId} 缺少文件句柄，无法写入`, 'error');
+      return;
+    }
 
-  useEffect(() => {
-    localStorage.setItem('smartspeed_settings', JSON.stringify(settings));
-  }, [settings]);
+    addLog(`正在连接服务器: ${task.url}...`);
+    
+    try {
+      // 1. 探测服务器
+      const headRes = await fetch(task.url, { method: 'HEAD' });
+      const size = parseInt(headRes.headers.get('content-length') || '0');
+      const acceptRanges = headRes.headers.get('accept-ranges') === 'bytes';
+      
+      setTasks(prev => prev.map(t => t.id === taskId ? { 
+        ...t, 
+        size, 
+        isRangeSupported: acceptRanges,
+        status: DownloadStatus.DOWNLOADING 
+      } : t));
 
-  useEffect(() => {
-    // 过滤掉非序列化属性后保存
-    const tasksToSave = tasks.map(({ fileHandle, ...rest }) => rest);
-    localStorage.setItem('smartspeed_tasks', JSON.stringify(tasksToSave));
-  }, [tasks]);
+      const writable = await handle.createWritable();
+      const controllers: AbortController[] = [];
+      const threadCount = acceptRanges ? 4 : 1; // 如果支持 Range，开启4线程
 
-  // 核心下载调度器 (Core Scheduler)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTasks(prev => {
-        let currentTotalSpeed = 0;
-        const next = prev.map(task => {
-          if (task.status === DownloadStatus.DOWNLOADING) {
-            // 模拟超线程：根据 maxThreads 决定基准速度
-            const baseSpeed = 1024 * 1024 * 5; // 5MB/s 基准
-            const threadBonus = (task.maxThreads / 128) * (Math.random() * 2);
-            const speed = baseSpeed * threadBonus;
+      addLog(`检测到服务器${acceptRanges ? '支持' : '不支持'}断点续传。开启 ${threadCount} 个并行线程。`, 'success');
+
+      if (acceptRanges && size > 0) {
+        // 多线程分片逻辑
+        const chunkSize = Math.ceil(size / threadCount);
+        const promises = Array.from({ length: threadCount }).map(async (_, i) => {
+          const start = i * chunkSize;
+          const end = i === threadCount - 1 ? size - 1 : (i + 1) * chunkSize - 1;
+          
+          const controller = new AbortController();
+          controllers.push(controller);
+
+          const res = await fetch(task.url, {
+            headers: { 'Range': `bytes=${start}-${end}` },
+            signal: controller.signal
+          });
+
+          if (!res.body) return;
+          const reader = res.body.getReader();
+          let pos = start;
+
+          while(true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            // 真实写入硬盘对应偏移量
+            await writable.write({ type: 'write', data: value, position: pos });
+            pos += value.length;
             
-            currentTotalSpeed += speed;
-            const newDownloaded = Math.min(task.size, task.downloaded + speed);
-            const progress = (newDownloaded / task.size) * 100;
-
-            // 更新 Bitfield 视图
-            const bitfield = [...task.bitfield];
-            const sectors = bitfield.length;
-            const finishedSectors = Math.floor((newDownloaded / task.size) * sectors);
-            for(let i=0; i<finishedSectors; i++) bitfield[i] = 2;
-            if(finishedSectors < sectors) bitfield[finishedSectors] = 1;
-
-            if (newDownloaded >= task.size) {
-              addLog('success', `任务 [${task.name}] 物理写入完成。`);
-              return { ...task, downloaded: task.size, progress: 100, speed: 0, status: DownloadStatus.COMPLETED, bitfield: new Array(sectors).fill(2) };
+            // 进度更新频率控制
+            if (Math.random() > 0.9) {
+              setTasks(prev => prev.map(t => {
+                if (t.id === taskId) {
+                  const newDownloaded = t.downloaded + value.length;
+                  return { ...t, downloaded: newDownloaded, progress: (newDownloaded / size) * 100 };
+                }
+                return t;
+              }));
             }
-
-            return { ...task, downloaded: newDownloaded, progress, speed, bitfield, lastActive: Date.now() };
           }
-          return task;
         });
-        setGlobalSpeedHistory(h => [...h, currentTotalSpeed].slice(-60));
-        return next;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [addLog]);
 
-  const handlePause = (id: string) => {
-    setTasks(p => p.map(t => t.id === id ? { ...t, status: DownloadStatus.PAUSED, speed: 0 } : t));
-    addLog('warn', `流传输已暂停，断点已挂载。`);
-  };
-
-  const handleResume = async (id: string) => {
-    const task = tasks.find(t => t.id === id);
-    if (!task) return;
-
-    addLog('info', `正在校验本地分块完整性...`);
-    // 如果是刷新后的恢复，可能需要重新获取文件句柄（出于安全限制，File API 句柄不可持久化）
-    // 这里模拟“断点重连”过程
-    setTasks(p => p.map(t => t.id === id ? { ...t, status: DownloadStatus.DOWNLOADING } : t));
-    addLog('success', `数据流重连成功，从偏移量 ${task.downloaded} 继续。`);
-  };
-
-  const handleDelete = (id: string) => {
-    setTasks(p => p.filter(t => t.id !== id));
-    addLog('error', `移除任务并释放空间配额。`);
-  };
-
-  const handleExport = async (task: DownloadTask) => {
-    if ('showSaveFilePicker' in window) {
-      try {
-        const handle = await (window as any).showSaveFilePicker({ suggestedName: task.name });
-        addLog('success', `本地物理路径已绑定：${handle.name}`);
-        // 实际开发中，这里会启动真正的 stream 下载逻辑
-      } catch (e) {
-        addLog('warn', '用户取消了路径绑定');
+        abortControllers.current.set(taskId, controllers);
+        await Promise.all(promises);
+      } else {
+        // 单线程普通流
+        const res = await fetch(task.url);
+        if (!res.body) throw new Error("Body is null");
+        const reader = res.body.getReader();
+        while(true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          await writable.write(value);
+        }
       }
+
+      await writable.close();
+      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: DownloadStatus.COMPLETED, progress: 100 } : t));
+      addLog(`文件下载完成并成功写入磁盘: ${task.name}`, 'success');
+
+    } catch (err: any) {
+      addLog(`下载失败: ${err.message}`, 'error');
+      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: DownloadStatus.ERROR } : t));
     }
   };
 
+  const handlePause = (id: string) => {
+    abortControllers.current.get(id)?.forEach(c => c.abort());
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, status: DownloadStatus.PAUSED } : t));
+    addLog(`任务已挂起: ${id}`, 'warn');
+  };
+
+  const handleAddTask = (task: DownloadTask) => {
+    if (task.fileHandle) {
+      fileHandles.current.set(task.id, task.fileHandle);
+    }
+    setTasks(prev => [task, ...prev]);
+    startSmartDownload(task.id);
+  };
+
   return (
-    <div className="flex h-screen bg-[#050608] text-slate-200 font-sans overflow-hidden">
-      <Sidebar 
-        currentFilter={filter} 
-        setFilter={setFilter} 
-        counts={{
-          all: tasks.length,
-          downloading: tasks.filter(t => t.status !== DownloadStatus.COMPLETED).length,
-          completed: tasks.filter(t => t.status === DownloadStatus.COMPLETED).length,
-          trash: 0
-        }}
-        globalSpeedHistory={globalSpeedHistory}
-        lang={settings.language}
-        diskUsage={diskUsage}
-        diskLimit={settings.totalDiskLimit}
-        onOpenSettings={() => setIsSettingsOpen(true)}
-      />
-
-      <main className="flex-1 ml-[var(--sidebar-width)] p-12 overflow-y-auto custom-scrollbar relative">
-        <div className="max-w-6xl mx-auto">
-          <header className="flex justify-between items-end mb-16">
-            <h2 className="text-8xl font-black uppercase tracking-tighter shimmer-text leading-none">
-              {t(filter as any, settings.language) || "TASKS"}
-            </h2>
-            <button 
-              onClick={() => setIsModalOpen(true)}
-              className="btn-tech bg-blue-600 text-white h-20 px-10 rounded-2xl font-black text-lg flex items-center gap-4"
-            >
-              <span className="text-2xl">+</span> {t('new_task', settings.language)}
-            </button>
-          </header>
-
-          <div className="grid gap-8">
-            {tasks.filter(t => filter === 'all' || (filter === 'downloading' && t.status !== DownloadStatus.COMPLETED) || (filter === 'completed' && t.status === DownloadStatus.COMPLETED)).map(task => (
-              <TaskCard 
-                key={task.id} 
-                task={task} 
-                onPause={handlePause} 
-                onResume={handleResume} 
-                onDelete={handleDelete}
-                onExport={handleExport}
-                lang={settings.language}
-              />
-            ))}
+    <div className="flex flex-col h-screen bg-[#f3f3f3]">
+      <header className="px-4 py-2 bg-white border-b flex justify-between items-center shadow-sm">
+        <div className="flex items-center gap-2">
+          <div className="w-5 h-5 bg-[#0078d4] rounded-sm flex items-center justify-center">
+             <ICONS.Zap className="w-3 h-3 text-white" />
           </div>
+          <span className="text-[12px] text-gray-600 font-bold">云加速 - 核心传输引擎 Active</span>
         </div>
+        <div className="flex gap-4">
+           <button onClick={() => setIsConsoleOpen(!isConsoleOpen)} className="text-[11px] text-[#0078d4] hover:underline">查看日志</button>
+           <div className="flex gap-2">
+             <div className="w-3 h-3 rounded-full bg-red-400" />
+             <div className="w-3 h-3 rounded-full bg-yellow-400" />
+             <div className="w-3 h-3 rounded-full bg-green-400" />
+           </div>
+        </div>
+      </header>
+
+      <main className="flex-1 overflow-y-auto custom-scrollbar bg-white">
+        {tasks.map(task => (
+          <TaskCard 
+            key={task.id} 
+            task={task} 
+            onPause={handlePause} 
+            onResume={startSmartDownload} 
+            onDelete={(id) => setTasks(p => p.filter(t => t.id !== id))} 
+          />
+        ))}
+        {tasks.length === 0 && (
+          <div className="h-full flex flex-col items-center justify-center text-gray-300">
+             <ICONS.Folder className="w-20 h-20 opacity-10 mb-4" />
+             <p className="text-sm">等待建立高速下载链接</p>
+          </div>
+        )}
       </main>
 
-      <ConsoleDrawer logs={logs} isOpen={isConsoleOpen} onToggle={() => setIsConsoleOpen(!isConsoleOpen)} lang={settings.language} />
+      <footer className="px-6 py-4 bg-gray-50 border-t flex items-center justify-between">
+        <div className="flex gap-3">
+           <button onClick={() => setIsModalOpen(true)} className="btn-fluent primary">新建下载</button>
+           <button onClick={() => setTasks([])} className="btn-fluent">清空列表</button>
+        </div>
+        <div className="text-[11px] text-gray-400 font-mono">
+           ENGINE_VER: 2.1.0-STABLE | THREADS_ALLOC: {tasks.filter(t => t.status === DownloadStatus.DOWNLOADING).length * 4}
+        </div>
+      </footer>
+
       <NewTaskModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
-        onAddTask={t => setTasks(p => [t, ...p])} 
-        lang={settings.language}
-        currentDiskUsage={diskUsage}
-        diskLimit={settings.totalDiskLimit}
+        onAddTask={handleAddTask}
+        lang="zh"
       />
-      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} settings={settings} onUpdate={setSettings} />
+      
+      <ConsoleDrawer 
+        logs={logs} 
+        isOpen={isConsoleOpen} 
+        onToggle={() => setIsConsoleOpen(!isConsoleOpen)} 
+        lang="zh" 
+      />
     </div>
   );
 };

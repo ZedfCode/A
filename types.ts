@@ -1,20 +1,25 @@
 
-// Fix: Add missing type exports for application settings
 export type Language = 'zh' | 'en';
-
-export type AccentColor = 'blue' | 'amber' | 'emerald' | 'rose' | 'indigo';
-
+// Added to fix SettingsModal.tsx errors
 export type VisualEnvironment = 'amber_digital' | 'ethereal_vapor' | 'monolith_dark';
+// Added to fix SettingsModal.tsx errors
+export type AccentColor = string;
+
+// Added to fix geminiService.ts error
+export interface AIAnalysisResult {
+  suggestedName: string;
+  fileType: FileType;
+  description: string;
+  tags: string[];
+  safetyScore: number;
+  securityReport: string;
+}
 
 export enum DownloadStatus {
   IDLE = 'IDLE',
-  QUEUED = 'QUEUED',
   CONNECTING = 'CONNECTING',
-  ALLOCATING = 'ALLOCATING', 
-  ANALYZING = 'ANALYZING',
   DOWNLOADING = 'DOWNLOADING',
   PAUSED = 'PAUSED',
-  VERIFYING = 'VERIFYING',
   COMPLETED = 'COMPLETED',
   ERROR = 'ERROR'
 }
@@ -29,7 +34,12 @@ export enum FileType {
   OTHER = 'OTHER'
 }
 
-export type Protocol = 'HTTP' | 'MAGNET' | 'TORRENT' | 'FTP' | 'BT';
+export interface DownloadChunk {
+  start: number;
+  end: number;
+  downloaded: number;
+  active: boolean;
+}
 
 export interface DownloadTask {
   id: string;
@@ -39,29 +49,17 @@ export interface DownloadTask {
   downloaded: number;
   status: DownloadStatus;
   type: FileType;
-  protocol: Protocol;
   progress: number;
   speed: number;
-  threads: number; 
-  maxThreads: number; 
   addedAt: number;
-  isResumable: boolean;
-  fileHandle?: any; // FileSystemFileHandle (not serializable)
+  fileHandle?: any; // FileSystemFileHandle
+  chunks: DownloadChunk[];
+  threads: number;
+  isRangeSupported: boolean;
+  // Added to fix error in NewTaskModal.tsx
   physicalPath?: string;
-  bitfield: number[]; // 0: empty, 1: downloading, 2: finished
-  safetyScore: number;
-  peerCount: number;
-  lastActive: number;
-}
-
-export interface AppSettings {
-  language: Language;
-  accentColor: AccentColor;
-  visualEnvironment: VisualEnvironment;
-  globalMaxThreads: number;
-  totalDiskLimit: number;
-  defaultSavePath: string;
-  aiEnabledByDefault: boolean;
+  // Added to support PreviewModal.tsx
+  peerCount?: number;
 }
 
 export interface SystemLog {
@@ -71,11 +69,10 @@ export interface SystemLog {
   message: string;
 }
 
-export interface AIAnalysisResult {
-  suggestedName: string;
-  fileType: FileType;
-  description: string;
-  tags: string[];
-  safetyScore: number;
-  securityReport: string;
+export interface AppSettings {
+  language: Language;
+  maxThreads: number;
+  // Added to support SettingsModal.tsx usage
+  visualEnvironment: VisualEnvironment;
+  aiEnabledByDefault: boolean;
 }
