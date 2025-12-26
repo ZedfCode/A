@@ -5,6 +5,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>智速下载 - 工业级控制终端</title>
+    <!-- Vercel/Production Compatibility Patch -->
+    <script>
+        window.process = { env: { API_KEY: "" } };
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=Noto+Sans+SC:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
@@ -30,7 +34,6 @@
             -webkit-font-smoothing: antialiased;
         }
 
-        /* 动态工程网格背景 */
         body::before {
             content: "";
             position: fixed;
@@ -61,7 +64,6 @@
 
         @keyframes shimmer { to { background-position: 200% center; } }
 
-        /* 极致物理反馈按钮 */
         .btn-tech {
             transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
             position: relative;
@@ -75,9 +77,30 @@
             box-shadow: 0 0 30px var(--accent-glow);
             transform: translateY(-2px);
         }
-        .btn-tech:active {
-            transform: translateY(1px) scale(0.98);
+        .btn-tech:active { transform: translateY(1px) scale(0.98); }
+
+        /* AI Switch Custom Styles */
+        .ai-switch {
+            width: 70px;
+            height: 36px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50px;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
+        .ai-switch.active { background: var(--accent-main); }
+        .ai-knob {
+            position: absolute;
+            left: 2px;
+            top: 2px;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .ai-switch.active .ai-knob { left: 36px; }
 
         .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 10px; }
@@ -85,14 +108,12 @@
 
         .mono-data { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
         
-        /* 任务列表进入动画 */
         .list-item-enter { animation: listItemEnter 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
         @keyframes listItemEnter {
             from { opacity: 0; transform: translateX(-20px) scale(0.98); }
             to { opacity: 1; transform: translateX(0) scale(1); }
         }
 
-        /* 自定义 Dropdown 样式 */
         .geek-dropdown-content {
             animation: dropdownFade 0.2s ease-out;
             transform-origin: top;
