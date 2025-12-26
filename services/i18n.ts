@@ -32,7 +32,11 @@ const translations = {
     preview_btn: "边下边播",
     health_label: "节点健康度",
     peers_label: "P2P 节点数",
-    save_success: "资源已写入磁盘"
+    save_success: "资源已写入磁盘",
+    disk_space_error: "磁盘空间不足，无法分配物理扇区",
+    allocating_space: "预分配磁盘空间...",
+    resuming_task: "正在恢复断点...",
+    disk_usage: "磁盘占用"
   },
   en: {
     app_name: "SmartSpeed",
@@ -64,7 +68,11 @@ const translations = {
     preview_btn: "Preview",
     health_label: "Health",
     peers_label: "Peers",
-    save_success: "Written to disk"
+    save_success: "Written to disk",
+    disk_space_error: "Insufficient disk space for allocation",
+    allocating_space: "Pre-allocating space...",
+    resuming_task: "Resuming from breakpoint...",
+    disk_usage: "Disk Usage"
   }
 };
 

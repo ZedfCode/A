@@ -1,14 +1,22 @@
 
+// Fix: Add missing type exports for application settings
+export type Language = 'zh' | 'en';
+
+export type AccentColor = 'blue' | 'amber' | 'emerald' | 'rose' | 'indigo';
+
+export type VisualEnvironment = 'amber_digital' | 'ethereal_vapor' | 'monolith_dark';
+
 export enum DownloadStatus {
   IDLE = 'IDLE',
   QUEUED = 'QUEUED',
   CONNECTING = 'CONNECTING',
+  ALLOCATING = 'ALLOCATING', 
   ANALYZING = 'ANALYZING',
   DOWNLOADING = 'DOWNLOADING',
   PAUSED = 'PAUSED',
+  VERIFYING = 'VERIFYING',
   COMPLETED = 'COMPLETED',
-  ERROR = 'ERROR',
-  RETRYING = 'RETRYING'
+  ERROR = 'ERROR'
 }
 
 export enum FileType {
@@ -18,35 +26,10 @@ export enum FileType {
   DOCUMENT = 'DOCUMENT',
   ARCHIVE = 'ARCHIVE',
   SOFTWARE = 'SOFTWARE',
-  WEBSITE = 'WEBSITE',
   OTHER = 'OTHER'
 }
 
-export enum Priority {
-  LOW = 0,
-  NORMAL = 1,
-  HIGH = 2,
-  URGENT = 3
-}
-
-export type Protocol = 'HTTP' | 'MAGNET' | 'TORRENT' | 'FTP' | 'THUNDER' | 'BT' | 'WEBRTC';
-
-export type VisualEnvironment = 'amber_digital' | 'ethereal_vapor' | 'monolith_dark';
-
-export interface PostProcessScript {
-  id: string;
-  name: string;
-  code: string;
-  isEnabled: boolean;
-}
-
-export interface SystemLog {
-  id: string;
-  timestamp: number;
-  level: 'info' | 'warn' | 'error' | 'success' | 'security';
-  message: string;
-  taskId?: string;
-}
+export type Protocol = 'HTTP' | 'MAGNET' | 'TORRENT' | 'FTP' | 'BT';
 
 export interface DownloadTask {
   id: string;
@@ -61,42 +44,33 @@ export interface DownloadTask {
   speed: number;
   threads: number; 
   maxThreads: number; 
-  priority: Priority;
   addedAt: number;
   isResumable: boolean;
-  savePath?: string;
-  eta: number;
-  error?: string;
-  speedHistory: number[];
-  bitfield: number[]; 
+  fileHandle?: any; // FileSystemFileHandle (not serializable)
+  physicalPath?: string;
+  bitfield: number[]; // 0: empty, 1: downloading, 2: finished
   safetyScore: number;
-  securityReport: string;
-  retries: number;
   peerCount: number;
+  lastActive: number;
 }
 
 export interface AppSettings {
   language: Language;
   accentColor: AccentColor;
   visualEnvironment: VisualEnvironment;
-  uiIntensity: 'calm' | 'normal' | 'juicy';
-  aiEnabledByDefault: boolean;
   globalMaxThreads: number;
-  concurrentTasks: number;
-  globalSpeedLimit: number; 
+  totalDiskLimit: number;
   defaultSavePath: string;
-  autoStart: boolean;
-  theme: 'dark' | 'light';
-  notifications: boolean;
-  clipboardMonitoring: boolean;
-  scripts: PostProcessScript[];
+  aiEnabledByDefault: boolean;
 }
 
-export type Language = 'zh' | 'en';
-export type AccentColor = 'warm' | 'blue' | 'purple' | 'emerald' | 'crimson';
-export type BackgroundPreset = 'mesh' | 'grid' | 'glass' | 'dark';
+export interface SystemLog {
+  id: string;
+  timestamp: number;
+  level: 'info' | 'warn' | 'error' | 'success';
+  message: string;
+}
 
-// Interface for AI link analysis results
 export interface AIAnalysisResult {
   suggestedName: string;
   fileType: FileType;

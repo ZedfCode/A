@@ -3,24 +3,20 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { AIAnalysisResult, FileType } from "../types";
 
 export class GeminiService {
-  private _ai: GoogleGenAI | null = null;
-
+  // Fix: Use a getter to create a fresh GoogleGenAI instance for each request to ensure current API key usage.
   private get ai(): GoogleGenAI {
-    if (!this._ai) {
-      // 检查全局变量或 process.env 以获取 API_KEY
-      const apiKey = (typeof process !== 'undefined' && process.env?.API_KEY) || "";
-      this._ai = new GoogleGenAI({ apiKey });
-    }
-    return this._ai;
+    // Guidelines: Always use process.env.API_KEY directly in the named parameter.
+    return new GoogleGenAI({ apiKey: process.env.API_KEY });
   }
 
   async analyzeUrl(url: string): Promise<AIAnalysisResult> {
     try {
-      const apiKey = (typeof process !== 'undefined' && process.env?.API_KEY);
-      if (!apiKey) {
+      // Ensure API_KEY is available as per guidelines.
+      if (!process.env.API_KEY) {
         throw new Error("API_KEY_MISSING");
       }
 
+      // Fix: Directly call generateContent on the ai.models instance as per SDK requirements.
       const response = await this.ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: `Analyze this link for a download manager: ${url}`,
@@ -50,13 +46,14 @@ export class GeminiService {
         }
       });
 
+      // Fix: Access the .text property directly (do not call as a method).
       const text = response.text;
       if (!text) throw new Error("EMPTY_AI_RESPONSE");
 
       return JSON.parse(text.trim()) as AIAnalysisResult;
     } catch (error) {
       console.warn("AI Analysis skipped (Reason: " + (error instanceof Error ? error.message : "unknown") + ")");
-      // 工业级回退方案：基于 URL 启发式分析
+      // Fallback: Basic URL analysis if API fails.
       const urlParts = url.split('/');
       const fileName = urlParts[urlParts.length - 1] || "resource_stream";
       return {

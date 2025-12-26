@@ -11,14 +11,26 @@ interface SidebarProps {
   globalSpeedHistory: number[];
   lang: Language;
   onOpenSettings: () => void;
+  diskUsage: number;
+  diskLimit: number;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentFilter, setFilter, counts, globalSpeedHistory, lang, onOpenSettings }) => {
+const formatSize = (bytes: number) => {
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  if (bytes === 0) return '0 B';
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+};
+
+const Sidebar: React.FC<SidebarProps> = ({ currentFilter, setFilter, counts, globalSpeedHistory, lang, onOpenSettings, diskUsage, diskLimit }) => {
   const menuItems = [
     { id: 'all', label: t('all_tasks', lang), icon: ICONS.Folder, count: counts.all },
     { id: 'downloading', label: t('downloading', lang), icon: ICONS.Zap, count: counts.downloading },
     { id: 'completed', label: t('completed', lang), icon: ICONS.Shield, count: counts.completed },
   ];
+
+  const diskPercent = Math.min(100, (diskUsage / diskLimit) * 100);
 
   const trafficPath = useMemo(() => {
     if (globalSpeedHistory.length < 2) return "";
@@ -45,7 +57,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentFilter, setFilter, counts, glo
         </div>
       </div>
 
-      <nav className="flex-1 px-10 space-y-6">
+      <nav className="flex-1 px-10 space-y-6 overflow-y-auto custom-scrollbar">
         {menuItems.map((item) => (
           <button
             key={item.id}
@@ -61,16 +73,29 @@ const Sidebar: React.FC<SidebarProps> = ({ currentFilter, setFilter, counts, glo
               <span className="font-black text-2xl uppercase tracking-tighter">{item.label}</span>
             </div>
             {item.count > 0 && (
-              <span className={`text-sm font-black mono-data px-4 py-1.5 bg-black rounded-xl border border-white/10 ${currentFilter === item.id ? 'text-amber-500 shadow-[0_0_15px_var(--accent-glow)]' : 'opacity-10'}`}>
+              <span className={`text-sm font-black mono-data px-4 py-1.5 bg-black rounded-xl border border-white/10 ${currentFilter === item.id ? 'text-amber-500' : 'opacity-10'}`}>
                  {item.count}
               </span>
             )}
           </button>
         ))}
+
+        {/* 磁盘占用 */}
+        <div className="px-10 py-10 mt-12 bg-black/40 rounded-[3rem] border border-white/5 space-y-6">
+           <div className="flex items-center justify-between opacity-40">
+              <span className="text-[10px] font-black uppercase tracking-widest">{t('disk_usage', lang)}</span>
+              <span className="text-[10px] font-black mono-data">{diskPercent.toFixed(1)}%</span>
+           </div>
+           <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+              <div className="h-full bg-blue-500 transition-all duration-1000" style={{ width: `${diskPercent}%` }} />
+           </div>
+           <p className="text-[11px] font-black text-slate-500 mono-data text-right uppercase">
+              {formatSize(diskUsage)} / {formatSize(diskLimit)}
+           </p>
+        </div>
       </nav>
 
       <div className="p-12 space-y-12">
-        {/* 动态仪表盘 */}
         <div className="bg-black rounded-[4rem] p-12 border border-white/5 shadow-3xl group overflow-hidden relative">
            <div className="flex justify-between items-baseline mb-10 relative z-10">
               <div className="flex items-center gap-4 opacity-30">
@@ -84,8 +109,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentFilter, setFilter, counts, glo
            <svg className="w-full h-28 text-amber-500 opacity-20 group-hover:opacity-50 transition-all duration-700" viewBox="0 0 300 120" preserveAspectRatio="none">
               <path d={trafficPath} fill="currentColor" fillOpacity="0.05" stroke="currentColor" strokeWidth="5" strokeLinejoin="round" />
            </svg>
-           {/* 背景网格 */}
-           <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
         </div>
 
         <div className="flex items-center justify-between px-6">

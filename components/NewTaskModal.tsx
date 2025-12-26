@@ -1,54 +1,53 @@
 
 import React, { useState, useEffect } from 'react';
 import { ICONS } from '../constants';
-import { DownloadTask, DownloadStatus, FileType, Language, Priority } from '../types';
-import { geminiService } from '../services/geminiService';
-import GeekDropdown from './GeekDropdown';
+import { DownloadTask, DownloadStatus, FileType, Language } from '../types';
+import { t } from '../services/i18n';
 
 interface NewTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAddTask: (task: DownloadTask) => void;
   lang: Language;
-  defaultSavePath: string;
-  aiByDefault: boolean;
+  currentDiskUsage: number;
+  diskLimit: number;
 }
 
-const NewTaskModal: React.FC<NewTaskModalProps> = ({ isOpen, onClose, onAddTask, aiByDefault }) => {
-  const [urlInput, setUrlInput] = useState('');
-  const [aiEnabled, setAiEnabled] = useState(aiByDefault);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [customName, setCustomName] = useState('');
-  const [threadLimit, setThreadLimit] = useState(256);
-
-  const threadOptions = [
-    { value: 128, label: '128X 效率型', icon: <ICONS.Cpu className="w-5 h-5"/>, desc: '平衡性能与带宽' },
-    { value: 256, label: '256X 激进型', icon: <ICONS.Zap className="w-5 h-5"/>, desc: '适合高速光纤环境' },
-    { value: 512, label: '512X 矩阵型', icon: <ICONS.Server className="w-5 h-5"/>, desc: '大文件分片加速' },
-    { value: 1024, label: '1024X 极限型', icon: <ICONS.Terminal className="w-5 h-5"/>, desc: '集群级并发采集' },
-  ];
+const NewTaskModal: React.FC<NewTaskModalProps> = ({ isOpen, onClose, onAddTask, lang, currentDiskUsage, diskLimit }) => {
+  const [url, setUrl] = useState('');
+  const [name, setName] = useState('');
+  const [threads, setThreads] = useState(256);
+  const [estimatedSize, setEstimatedSize] = useState(0);
 
   useEffect(() => {
-    if (!isOpen) { setUrlInput(''); setCustomName(''); setIsAnalyzing(false); }
-    setAiEnabled(aiByDefault);
-  }, [isOpen, aiByDefault]);
+    if (url.length > 10) {
+      // 模拟探测文件大小
+      setEstimatedSize(Math.floor(Math.random() * 2000 * 1024 * 1024) + 50 * 1024 * 1024);
+      if(!name) setName(url.split('/').pop() || 'RESOURCE_DATA');
+    }
+  }, [url]);
 
-  const handleStart = async () => {
-    if (!urlInput.trim()) return;
-    
-    let finalName = customName;
-    if (aiEnabled) {
-      setIsAnalyzing(true);
-      const result = await geminiService.analyzeUrl(urlInput);
-      finalName = customName || result.suggestedName;
-      setIsAnalyzing(false);
+  const hasSpace = (currentDiskUsage + estimatedSize) <= diskLimit;
+
+  const handleSubmit = async () => {
+    if (!url || !hasSpace) return;
+
+    // 真正的落地：尝试触发文件选择器
+    let physicalPath = "Default/Downloads";
+    if ('showSaveFilePicker' in window) {
+      try {
+        const handle = await (window as any).showSaveFilePicker({ suggestedName: name });
+        physicalPath = `Local://Disk/${handle.name}`;
+      } catch (e) {
+        // 用户取消，则使用默认模拟路径
+      }
     }
 
     onAddTask({
       id: Math.random().toString(36).substr(2, 9),
-      url: urlInput,
-      name: finalName || urlInput.split('/').pop() || 'UNTITLED_RESOURCE',
-      size: 1024 * 1024 * (Math.random() * 5000 + 1000),
+      url,
+      name: name || 'UNTITLED',
+      size: estimatedSize,
       downloaded: 0,
       status: DownloadStatus.DOWNLOADING,
       type: FileType.OTHER,
@@ -56,17 +55,14 @@ const NewTaskModal: React.FC<NewTaskModalProps> = ({ isOpen, onClose, onAddTask,
       progress: 0,
       speed: 0,
       threads: 0,
-      maxThreads: threadLimit,
-      priority: Priority.HIGH,
+      maxThreads: threads,
       addedAt: Date.now(),
       isResumable: true,
-      bitfield: new Array(128).fill(0),
-      safetyScore: 100,
-      securityReport: "PROTOCOL SECURE",
-      speedHistory: [],
-      retries: 0,
-      peerCount: 128,
-      eta: 0
+      physicalPath,
+      bitfield: new Array(100).fill(0),
+      safetyScore: 98,
+      peerCount: 120,
+      lastActive: Date.now()
     });
     onClose();
   };
@@ -74,78 +70,68 @@ const NewTaskModal: React.FC<NewTaskModalProps> = ({ isOpen, onClose, onAddTask,
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-8 overflow-hidden">
-      <div className="absolute inset-0 bg-[#050608]/90 backdrop-blur-3xl animate-in fade-in duration-300" onClick={onClose} />
-      
-      <div className="relative glass-panel rounded-[3.5rem] w-full max-w-5xl p-16 flex flex-col border border-white/5 animate-in zoom-in-95 duration-500 shadow-4xl">
-        <header className="flex justify-between items-start mb-12">
-          <div>
-            <div className="flex items-center gap-4 mb-4">
-               <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-                  <ICONS.Plus className="w-6 h-6 text-white" />
-               </div>
-               <span className="text-[10px] font-black uppercase tracking-[0.8em] text-slate-500 leading-none">Initialization Cluster</span>
-            </div>
-            <h3 className="text-6xl font-black italic tracking-tighter uppercase text-white leading-none">建立采集任务</h3>
-          </div>
-          
-          <div className="flex flex-col items-end gap-3 bg-white/[0.03] p-5 rounded-3xl border border-white/5">
-             <span className="text-[9px] font-black uppercase text-blue-400 tracking-widest italic">AI Analysis Engine</span>
-             <div 
-                className={`ai-switch scale-[1.3] ${aiEnabled ? 'active' : ''}`}
-                onClick={() => setAiEnabled(!aiEnabled)}
-              >
-                <div className="ai-knob bg-white flex items-center justify-center shadow-xl">
-                  <ICONS.Brain className={`w-4 h-4 ${aiEnabled ? 'text-blue-500' : 'text-slate-400'}`} />
-                </div>
-              </div>
-          </div>
-        </header>
-
-        <div className="space-y-10">
-          <div className="relative group">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-6 backdrop-blur-3xl bg-black/60">
+      <div className="glass-panel w-full max-w-3xl p-12 rounded-[3rem] border border-white/10 animate-in zoom-in-95">
+        <h3 className="text-4xl font-black mb-8 uppercase italic tracking-tighter">Initialize Link Matrix</h3>
+        
+        <div className="space-y-8">
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">Source Resource URL</label>
             <textarea 
-              placeholder="PASTE RESOURCE LINKS / MAGNET / TORRENT..."
-              className="w-full h-64 bg-black/40 border border-white/5 rounded-[2.5rem] p-10 font-mono text-2xl outline-none focus:border-blue-500/40 focus:bg-black/60 transition-all placeholder:text-slate-700 custom-scrollbar"
-              value={urlInput}
-              onChange={e => setUrlInput(e.target.value)}
+              className="w-full bg-black/50 border border-white/5 rounded-2xl p-6 font-mono text-sm outline-none focus:border-blue-500/50"
+              rows={3}
+              placeholder="Paste HTTP / HTTPS / MAGNET link here..."
+              value={url}
+              onChange={e => setUrl(e.target.value)}
             />
-            {isAnalyzing && (
-              <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center rounded-[2.5rem] animate-in fade-in">
-                 <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-6" />
-                 <p className="text-sm font-black uppercase tracking-[1em] text-blue-500 animate-pulse">Deep Analyzing...</p>
-              </div>
-            )}
           </div>
 
-          <div className="grid grid-cols-2 gap-10">
-             <GeekDropdown 
-                label="并发模型配置 / THREADING"
-                options={threadOptions}
-                value={threadLimit}
-                onChange={setThreadLimit}
-             />
+          <div className="grid grid-cols-2 gap-8">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">Local Alias</label>
+              <input 
+                className="w-full bg-black/50 border border-white/5 rounded-2xl p-5 font-bold outline-none focus:border-blue-500/50"
+                value={name}
+                onChange={e => setName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">Parallel Tunnels</label>
+              <select 
+                className="w-full bg-black/50 border border-white/5 rounded-2xl p-5 font-bold outline-none appearance-none cursor-pointer"
+                value={threads}
+                onChange={e => setThreads(Number(e.target.value))}
+              >
+                <option value={128}>128 Tunnels (Safe)</option>
+                <option value={256}>256 Tunnels (Aggressive)</option>
+                <option value={512}>512 Tunnels (Extreme)</option>
+                <option value={1024}>1024 Tunnels (Industrial)</option>
+              </select>
+            </div>
+          </div>
 
-             <div className="space-y-3">
-                <label className="text-[10px] font-black uppercase text-slate-500 tracking-[0.4em] mb-3 ml-4">重命名元数据 / ALIAS</label>
-                <input 
-                  className="w-full bg-white/[0.02] border border-white/10 rounded-[1.5rem] px-8 py-5 font-bold text-lg outline-none hover:bg-white/[0.05] text-white focus:border-blue-500 transition-all"
-                  value={customName}
-                  onChange={e => setCustomName(e.target.value)}
-                  placeholder="KEEP_ORIGINAL_ID"
-                />
+          <div className={`p-6 rounded-2xl border ${hasSpace ? 'bg-emerald-500/5 border-emerald-500/10' : 'bg-rose-500/5 border-rose-500/10'}`}>
+             <div className="flex justify-between items-center mb-2">
+                <span className="text-[10px] font-black uppercase text-slate-400">Capacity Pre-allocation Check</span>
+                <span className={`text-[10px] font-black ${hasSpace ? 'text-emerald-500' : 'text-rose-500'}`}>
+                  {hasSpace ? 'READY' : 'INSUFFICIENT SPACE'}
+                </span>
              </div>
+             <p className="text-xs font-mono text-slate-500 uppercase">
+                Est. Size: {(estimatedSize / (1024*1024)).toFixed(1)} MB | Path: {hasSpace ? 'Writeable' : 'Blocked'}
+             </p>
           </div>
 
-          <button 
-            onClick={handleStart}
-            disabled={!urlInput || isAnalyzing}
-            className={`w-full py-9 rounded-[2.5rem] font-black text-2xl uppercase tracking-[1em] btn-tech flex items-center justify-center gap-5 transition-all ${
-               urlInput && !isAnalyzing ? 'bg-blue-600 text-white border-transparent' : 'opacity-20 grayscale cursor-not-allowed'
-            }`}
-          >
-            {isAnalyzing ? "分析中..." : <><ICONS.Zap className="w-8 h-8" /> 激活数据流</>}
-          </button>
+          <div className="flex gap-4">
+            <button onClick={onClose} className="flex-1 py-6 rounded-2xl font-black uppercase tracking-widest text-slate-500 hover:bg-white/5 transition-all">Cancel</button>
+            <button 
+              onClick={handleSubmit} 
+              disabled={!url || !hasSpace}
+              className={`flex-1 py-6 rounded-2xl font-black uppercase tracking-widest transition-all ${!url || !hasSpace ? 'bg-white/5 text-white/10' : 'bg-blue-600 text-white shadow-xl shadow-blue-500/20 active:scale-95'}`}
+            >
+              Confirm & Start
+            </button>
+          </div>
         </div>
       </div>
     </div>
