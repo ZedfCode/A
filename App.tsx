@@ -15,14 +15,14 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('downloader_settings');
     return saved ? JSON.parse(saved) : {
       language: 'zh',
-      accentColor: 'warm',
-      visualEnvironment: 'amber_digital',
-      uiIntensity: 'juicy',
+      accentColor: 'blue',
+      visualEnvironment: 'monolith_dark',
+      uiIntensity: 'normal',
       aiEnabledByDefault: true,
       globalMaxThreads: 1024,
-      concurrentTasks: 8,
+      concurrentTasks: 5,
       globalSpeedLimit: 0,
-      defaultSavePath: 'E:/Matrix_Storage',
+      defaultSavePath: 'C:/Vault/DataStream',
       autoStart: true,
       theme: 'dark',
       notifications: true,
@@ -61,7 +61,7 @@ const App: React.FC = () => {
         let totalSpeed = 0;
         const next = prev.map(task => {
           if (task.status === DownloadStatus.DOWNLOADING) {
-            const speed = 1024 * 1024 * (Math.random() * 80 + 60) * (task.priority + 2);
+            const speed = 1024 * 1024 * (Math.random() * 50 + 20) * (task.priority + 1.2);
             totalSpeed += speed;
             const newDownloaded = task.downloaded + speed;
             const progress = Math.min(100, (newDownloaded / task.size) * 100);
@@ -77,7 +77,7 @@ const App: React.FC = () => {
               status: progress >= 100 ? DownloadStatus.COMPLETED : task.status, 
               downloaded: newDownloaded,
               bitfield,
-              threads: progress >= 100 ? 0 : Math.floor(task.maxThreads * (0.98 + Math.random() * 0.02))
+              threads: progress >= 100 ? 0 : Math.floor(task.maxThreads * (0.9 + Math.random() * 0.1))
             };
           }
           return task;
@@ -100,7 +100,7 @@ const App: React.FC = () => {
   }, [tasks, searchQuery, filter, sortBy]);
 
   return (
-    <div className="flex h-screen overflow-hidden selection:bg-amber-500 selection:text-black">
+    <div className="flex h-screen overflow-hidden selection:bg-blue-500 selection:text-white">
       <Sidebar 
         currentFilter={filter} setFilter={setFilter} 
         globalSpeedHistory={globalSpeedHistory}
@@ -114,70 +114,67 @@ const App: React.FC = () => {
         onOpenSettings={() => setIsSettingsOpen(true)} 
       />
 
-      <main className="flex-1 ml-[var(--sidebar-width)] p-24 h-full overflow-y-auto custom-scrollbar relative">
-        <div className="max-w-[1700px] mx-auto">
-          <header className="flex items-end justify-between mb-28">
-            <div className="animate-in fade-in slide-in-from-left-12 duration-1000">
-               <div className="flex items-center gap-5 mb-8 opacity-20">
-                  <div className="w-10 h-0.5 bg-white" />
-                  <span className="text-[12px] font-black uppercase tracking-[1.5em] italic">Central Matrix Command</span>
+      <main className="flex-1 ml-[var(--sidebar-width)] p-20 h-full overflow-y-auto custom-scrollbar relative bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.03),transparent_40%)]">
+        <div className="max-w-[1500px] mx-auto">
+          <header className="flex items-end justify-between mb-24">
+            <div className="animate-in fade-in slide-in-from-left duration-700">
+               <div className="flex items-center gap-3 mb-5 opacity-40">
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,1)]" />
+                  <span className="text-[11px] font-black uppercase tracking-[0.8em] italic">Station_Command_Center</span>
                </div>
-              <h2 className="text-[13rem] font-black italic tracking-tighter shimmer-text leading-[0.65] uppercase opacity-95">
+              <h2 className="text-[10rem] font-black tracking-tighter shimmer-text leading-[0.7] uppercase">
                 {t(filter as any, settings.language) || t('all_tasks', settings.language)}
               </h2>
             </div>
 
-            <div className="flex flex-col gap-10 items-end">
+            <div className="flex flex-col gap-8 items-end">
               <div className="flex items-center gap-6">
-                <div className="glass-panel rounded-[3rem] px-12 py-7 flex items-center min-w-[600px] border-white/5 hover:border-amber-500/20 transition-all group">
-                  <ICONS.Search className="w-9 h-9 text-white/10 group-focus-within:text-amber-500 transition-colors mr-6" />
+                <div className="glass-panel rounded-full px-10 py-5 flex items-center min-w-[500px] border-white/5 hover:border-blue-500/30 transition-all group">
+                  <ICONS.Search className="w-7 h-7 text-slate-700 group-focus-within:text-blue-500 transition-colors mr-5" />
                   <input 
                     placeholder={t('search_placeholder', settings.language)} 
-                    className="bg-transparent w-full outline-none font-black text-3xl text-white placeholder-white/[0.03]"
+                    className="bg-transparent w-full outline-none font-bold text-xl text-slate-200 placeholder-slate-800"
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                   />
                 </div>
                 <button 
                   onClick={() => setIsModalOpen(true)}
-                  className="cyber-button bg-amber-500 text-black h-32 px-16 rounded-[3.5rem] font-black text-3xl uppercase tracking-tighter flex items-center gap-6 shadow-4xl shadow-amber-500/20"
+                  className="btn-tech bg-blue-600 text-white h-24 px-12 rounded-3xl font-black text-xl uppercase tracking-widest flex items-center gap-4 shadow-2xl shadow-blue-500/20"
                 >
-                  <ICONS.Plus className="w-14 h-14" /> {t('new_task', settings.language)}
+                  <ICONS.Plus className="w-8 h-8" /> {t('new_task', settings.language)}
                 </button>
               </div>
-              <div className="flex gap-12 px-6">
-                  <div className="flex flex-col items-end">
-                      <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">Global Concurrency</span>
-                      <span className="text-2xl font-black mono-data text-white/80">1,024 Threads</span>
+              <div className="flex gap-10 px-8 text-[11px] font-black uppercase text-slate-500 tracking-[0.2em] italic">
+                  <div className="flex items-center gap-3">
+                      <ICONS.Cpu className="w-4 h-4" />
+                      POOL_CONCURRENCY: <span className="text-slate-300 mono-data">{(globalSpeedHistory[globalSpeedHistory.length-1] > 0 ? 1024 : 0)} THREADS</span>
                   </div>
-                  <div className="w-px h-10 bg-white/10" />
-                  <div className="flex flex-col items-end">
-                      <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">Engine Latency</span>
-                      <span className="text-2xl font-black mono-data text-emerald-400">8.4ms</span>
+                  <div className="flex items-center gap-3">
+                      <ICONS.Zap className="w-4 h-4" />
+                      NETWORK_SECURE: <span className="text-emerald-500">ENCRYPTED</span>
                   </div>
               </div>
             </div>
           </header>
 
-          <div className="flex items-center justify-between mb-20 px-16 py-10 glass-panel rounded-[4rem] border-white/5 bg-black/40">
-             <div className="flex gap-10">
-                <button className="flex items-center gap-5 px-12 py-6 hover:bg-emerald-500/20 text-emerald-400 rounded-[2rem] transition-all font-black uppercase text-xl tracking-tighter border border-emerald-500/10 cyber-button">
-                   <ICONS.Play className="w-8 h-8" /> {t('start_all', settings.language)}
+          <div className="flex items-center justify-between mb-16 px-12 py-7 glass-panel rounded-[2.5rem] border-white/5 bg-black/20">
+             <div className="flex gap-8">
+                <button className="flex items-center gap-4 px-10 py-4 hover:bg-emerald-500/10 text-emerald-400 rounded-2xl transition-all font-black uppercase text-sm tracking-widest border border-emerald-500/5">
+                   <ICONS.Play className="w-6 h-6" /> {t('start_all', settings.language)}
                 </button>
-                <button className="flex items-center gap-5 px-12 py-6 hover:bg-amber-500/20 text-amber-400 rounded-[2rem] transition-all font-black uppercase text-xl tracking-tighter border border-amber-500/10 cyber-button">
-                   <ICONS.Pause className="w-8 h-8" /> {t('pause_all', settings.language)}
+                <button className="flex items-center gap-4 px-10 py-4 hover:bg-amber-500/10 text-amber-400 rounded-2xl transition-all font-black uppercase text-sm tracking-widest border border-amber-500/5">
+                   <ICONS.Pause className="w-6 h-6" /> {t('pause_all', settings.language)}
                 </button>
              </div>
-             <div className="flex items-center gap-12">
-                <div className="flex flex-col items-end opacity-20">
-                    <span className="text-[10px] font-black uppercase tracking-[0.6em] italic">Cluster Sort</span>
-                </div>
-                <div className="flex bg-black rounded-[2rem] p-3 gap-4 border border-white/5">
+             <div className="flex items-center gap-8">
+                <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Global Order Strategy</span>
+                <div className="flex bg-black p-1.5 rounded-2xl border border-white/5 gap-2">
                    {(['time', 'size', 'progress'] as const).map(s => (
                      <button 
                       key={s}
                       onClick={() => setSortBy(s)}
-                      className={`px-12 py-5 rounded-[1.5rem] text-sm font-black uppercase transition-all ${sortBy === s ? 'bg-amber-500 text-black shadow-3xl scale-105' : 'text-white/20 hover:text-white'}`}
+                      className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${sortBy === s ? 'bg-blue-600 text-white shadow-xl scale-105' : 'text-slate-600 hover:text-slate-200'}`}
                      >
                        {t(`sort_${s}` as any, settings.language)}
                      </button>
@@ -186,7 +183,7 @@ const App: React.FC = () => {
              </div>
           </div>
 
-          <div className="grid gap-20 grid-cols-1 2xl:grid-cols-2 pb-60">
+          <div className="grid gap-12 grid-cols-1 pb-40">
             {filteredTasks.map(task => (
               <TaskCard 
                 key={task.id} 
@@ -200,9 +197,9 @@ const App: React.FC = () => {
               />
             ))}
             {filteredTasks.length === 0 && (
-              <div className="col-span-full h-[500px] flex flex-col items-center justify-center opacity-10 border-2 border-dashed border-white/5 rounded-[6rem] bg-black">
-                <ICONS.Terminal className="w-40 h-40 mb-12" />
-                <p className="font-black uppercase tracking-[1.5em] text-white text-xl">Command Required: Paste Tunnel Link</p>
+              <div className="col-span-full h-80 flex flex-col items-center justify-center opacity-10 border-2 border-dashed border-white/5 rounded-[4rem] bg-black">
+                <ICONS.Terminal className="w-32 h-32 mb-8" />
+                <p className="font-black uppercase tracking-[1.5em] text-slate-400">System Ready: Awaiting Command Input</p>
               </div>
             )}
           </div>

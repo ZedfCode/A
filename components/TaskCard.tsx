@@ -28,136 +28,116 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onPause, onResume, onDelete, 
   const isRunning = [DownloadStatus.DOWNLOADING, DownloadStatus.CONNECTING].includes(task.status);
   const isCompleted = task.status === DownloadStatus.COMPLETED;
 
-  // 模拟并发线程活动矩阵 (128个微小采样点)
-  const threadMatrix = useMemo(() => {
-    return new Array(64).fill(0).map(() => Math.random() > 0.4);
-  }, [task.speed, isRunning]);
+  // 模拟一个更真实的线程池动态
+  const threadLoad = useMemo(() => {
+    return new Array(8).fill(0).map(() => Math.random() * 100);
+  }, [task.speed]);
 
   return (
     <div 
-      className={`glass-panel p-10 rounded-[4rem] transition-all card-3d relative overflow-hidden flex flex-col gap-10 cursor-pointer border-white/[0.05] ${
-        isRunning ? 'ring-2 ring-amber-500/20' : ''
-      } hover:bg-white/[0.08]`}
+      className={`glass-panel p-8 rounded-[2.5rem] transition-all duration-500 list-item-enter relative overflow-hidden flex flex-col gap-6 cursor-pointer border-white/[0.04] group ${
+        isRunning ? 'ring-1 ring-blue-500/20 bg-blue-500/[0.01]' : ''
+      } hover:bg-white/[0.06] hover:-translate-y-1`}
       onClick={() => setExpanded(!expanded)}
     >
-      {/* 活跃指示器 */}
-      {isRunning && (
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent animate-pulse" />
-      )}
-
-      <div className="flex items-start gap-10 relative z-10">
-        {/* 核心状态图标 */}
-        <div className={`w-28 h-28 rounded-[2.5rem] flex items-center justify-center shrink-0 shadow-3xl transition-all duration-700 ${
-          isRunning ? 'bg-amber-500 text-black' : isCompleted ? 'bg-emerald-500 text-black' : 'bg-white/5 text-white/10'
+      <div className="flex items-center gap-8 relative z-10">
+        {/* 简洁成熟的图标指示器 */}
+        <div className={`w-20 h-20 rounded-2xl flex items-center justify-center shrink-0 border transition-all duration-700 ${
+          isRunning ? 'bg-blue-600 border-blue-400 text-white shadow-[0_0_25px_rgba(59,130,246,0.3)]' : 
+          isCompleted ? 'bg-emerald-600/20 border-emerald-500/40 text-emerald-500' : 'bg-white/5 border-white/5 text-slate-600'
         }`}>
-          {isCompleted ? <ICONS.Shield className="w-14 h-14" /> : <ICONS.Download className="w-14 h-14 animate-bounce-subtle" />}
+          {isCompleted ? <ICONS.Shield className="w-10 h-10" /> : <ICONS.Download className={`w-10 h-10 ${isRunning ? 'animate-pulse' : ''}`} />}
         </div>
 
-        <div className="flex-1 min-w-0 pt-2">
-          <div className="flex items-center gap-5 mb-5">
-             <h3 className="text-4xl font-black text-white truncate tracking-tighter uppercase leading-none">{task.name}</h3>
-             <div className="flex gap-2">
-                <span className="px-3 py-1 bg-white/5 text-[10px] font-black uppercase text-white/30 rounded-md border border-white/5">
-                  {task.protocol}
-                </span>
-                <span className="px-3 py-1 bg-blue-500/10 text-[10px] font-black uppercase text-blue-400 rounded-md border border-blue-500/10">
-                  SECURE
-                </span>
-             </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-4 mb-3">
+             <h3 className="text-2xl font-black text-slate-100 truncate tracking-tight uppercase leading-none group-hover:text-blue-400 transition-colors">{task.name}</h3>
+             <span className="px-2 py-0.5 bg-white/5 text-[9px] font-black uppercase text-slate-500 rounded border border-white/10">
+               {task.protocol}
+             </span>
           </div>
           
-          <div className="flex items-center gap-10 mb-8">
+          <div className="flex items-center gap-10 mb-5">
              <div className="flex flex-col">
-                <span className="text-[10px] font-black text-white/20 uppercase tracking-widest mb-1">Payload Volume</span>
-                <span className="text-xl mono-data font-black text-white/80">
-                   {formatSize(task.downloaded)} <span className="text-white/20">/</span> {formatSize(task.size)}
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">DATA PROCESSED</span>
+                <span className="text-lg mono-data font-black text-slate-300">
+                   {formatSize(task.downloaded)} <span className="text-slate-700">/</span> {formatSize(task.size)}
                 </span>
              </div>
              
              {isRunning && (
                 <div className="flex flex-col">
-                   <span className="text-[10px] font-black text-amber-500/40 uppercase tracking-widest mb-1">Throughput Rate</span>
-                   <div className="flex items-center gap-3">
-                      <ICONS.Gauge className="w-5 h-5 text-amber-500" />
-                      <span className="text-2xl font-black text-amber-500 mono-data">
-                        {(task.speed / (1024*1024)).toFixed(1)} <span className="text-xs">MB/S</span>
-                      </span>
-                   </div>
+                   <span className="text-[10px] font-bold text-blue-500/60 uppercase tracking-widest mb-1">THROUGHPUT</span>
+                   <span className="text-lg font-black text-blue-400 mono-data">
+                     {(task.speed / (1024*1024)).toFixed(1)} <span className="text-xs">MB/S</span>
+                   </span>
                 </div>
              )}
+
+             <div className="flex flex-col ml-auto text-right">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">HEALTH</span>
+                <span className={`text-lg font-black mono-data ${task.safetyScore > 80 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                   {task.safetyScore}%
+                </span>
+             </div>
           </div>
 
-          <div className="w-full h-5 bg-black/80 rounded-full overflow-hidden relative border border-white/5 shadow-2xl">
+          <div className="w-full h-2.5 bg-black/40 rounded-full overflow-hidden relative border border-white/5">
              <div 
-               className={`h-full transition-all duration-1000 ease-out relative ${isCompleted ? 'bg-emerald-500' : 'bg-amber-500'}`}
+               className={`h-full transition-all duration-1000 ease-in-out relative ${isCompleted ? 'bg-emerald-500' : 'bg-blue-500'}`}
                style={{ width: `${task.progress}%` }}
              >
-                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20" />
-                {isRunning && <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-[shimmer_1.5s_infinite]" />}
+                {isRunning && <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[shimmer_2s_infinite]" />}
              </div>
           </div>
         </div>
 
-        <div className="flex flex-col gap-4">
+        <div className="flex gap-3">
           {isRunning ? (
-            <button onClick={(e) => { e.stopPropagation(); onPause(task.id); }} className="w-20 h-20 cyber-button text-white rounded-[1.8rem] flex items-center justify-center">
-              <ICONS.Pause className="w-10 h-10"/>
+            <button onClick={(e) => { e.stopPropagation(); onPause(task.id); }} className="w-14 h-14 btn-tech text-white rounded-2xl flex items-center justify-center">
+              <ICONS.Pause className="w-7 h-7"/>
             </button>
           ) : !isCompleted && (
-            <button onClick={(e) => { e.stopPropagation(); onResume(task.id); }} className="w-20 h-20 bg-amber-500 text-black rounded-[1.8rem] cyber-button flex items-center justify-center">
-              <ICONS.Play className="w-10 h-10"/>
+            <button onClick={(e) => { e.stopPropagation(); onResume(task.id); }} className="w-14 h-14 bg-blue-600 text-white rounded-2xl btn-tech flex items-center justify-center shadow-lg shadow-blue-500/20">
+              <ICONS.Play className="w-7 h-7"/>
             </button>
           )}
-          <button onClick={(e) => { e.stopPropagation(); onDelete(task.id); }} className="w-20 h-20 bg-rose-500/5 text-rose-500 hover:bg-rose-500 hover:text-white rounded-[1.8rem] cyber-button flex items-center justify-center">
-            <ICONS.Trash className="w-10 h-10"/>
+          <button onClick={(e) => { e.stopPropagation(); onDelete(task.id); }} className="w-14 h-14 bg-rose-600/10 text-rose-500 hover:bg-rose-600 hover:text-white rounded-2xl btn-tech flex items-center justify-center border-rose-500/20">
+            <ICONS.Trash className="w-7 h-7"/>
           </button>
         </div>
       </div>
 
-      {/* 实时线程矩阵显示 */}
-      {isRunning && (
-        <div className="bg-black/60 p-6 rounded-3xl border border-white/5 flex flex-col gap-4">
-           <div className="flex justify-between items-center">
-              <span className="text-[9px] font-black uppercase text-white/20 tracking-[0.4em]">Hyper-Thread Matrix (Live)</span>
-              <span className="text-[10px] font-black text-amber-500 mono-data italic">Tunnel Load: 88.4%</span>
-           </div>
-           <div className="grid grid-cols-16 gap-1.5">
-              {threadMatrix.map((active, i) => (
-                <div key={i} className={`h-3 rounded-[1px] transition-all duration-300 ${active ? 'bg-amber-500 shadow-[0_0_8px_var(--accent-glow)]' : 'bg-white/[0.02]'}`} />
-              ))}
-           </div>
-        </div>
-      )}
-
       {expanded && (
-        <div className="pt-10 border-t border-white/5 animate-in slide-in-from-top-4 duration-500 grid grid-cols-2 gap-8">
-           <div className="bg-white/[0.01] p-8 rounded-[3rem] border border-white/5">
-              <div className="flex items-center gap-4 mb-6">
-                 <ICONS.Server className="w-5 h-5 text-blue-400" />
-                 <span className="text-xs font-black uppercase text-blue-400 tracking-widest">Metadata Cluster</span>
-              </div>
-              <div className="space-y-4">
-                 <div className="flex justify-between items-center">
-                    <span className="text-[10px] text-white/30 uppercase font-black">Hash Status</span>
-                    <span className="text-xs font-black text-emerald-400 italic">VERIFIED</span>
+        <div className="pt-8 border-t border-white/5 animate-in slide-in-from-top-4 duration-500 grid grid-cols-1 md:grid-cols-3 gap-8">
+           <div className="col-span-2 space-y-6">
+              <div className="flex items-center justify-between px-2">
+                 <span className="text-[10px] font-black uppercase text-slate-600 tracking-[0.5em]">Sector Sync Matrix</span>
+                 <div className="flex items-center gap-3">
+                    <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                    <span className="text-[10px] font-black text-blue-500 mono-data">PEERS: {task.peerCount || 102}</span>
                  </div>
-                 <div className="flex justify-between items-center">
-                    <span className="text-[10px] text-white/30 uppercase font-black">Active Peers</span>
-                    <span className="text-xs font-black text-white mono-data">{task.peerCount || 124}</span>
-                 </div>
-                 <div className="flex justify-between items-center">
-                    <span className="text-[10px] text-white/30 uppercase font-black">Security Rank</span>
-                    <span className="text-xs font-black text-amber-500 uppercase tracking-widest">LV.9 Ultra</span>
-                 </div>
-              </div>
-           </div>
-
-           <div className="bg-black/40 p-8 rounded-[3.5rem] border border-white/5">
-              <div className="flex items-center justify-between mb-6">
-                 <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.6em]">Sector Map</span>
-                 <ICONS.Cpu className="w-5 h-5 text-amber-500" />
               </div>
               <Bitfield data={task.bitfield} status={task.status} />
+           </div>
+
+           <div className="bg-white/[0.01] p-6 rounded-3xl border border-white/5 space-y-5">
+              <p className="text-[10px] font-black uppercase text-slate-600 tracking-widest">Core Distribution</p>
+              <div className="grid grid-cols-4 gap-2">
+                 {threadLoad.map((load, i) => (
+                   <div key={i} className="h-12 bg-black/40 rounded border border-white/5 flex flex-col-reverse overflow-hidden">
+                      <div className="bg-blue-500/40 w-full transition-all duration-1000" style={{ height: `${load}%` }} />
+                   </div>
+                 ))}
+              </div>
+              <div className="pt-2">
+                 <button 
+                  onClick={(e) => { e.stopPropagation(); onPreview(task); }}
+                  className="w-full py-3 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-white/10 hover:border-blue-500/50"
+                 >
+                    Request Live Stream
+                 </button>
+              </div>
            </div>
         </div>
       )}
