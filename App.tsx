@@ -12,7 +12,6 @@ const App: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isConsoleOpen, setIsConsoleOpen] = useState(false);
   
-  // 运行中的文件句柄映射（因为句柄无法持久化到 localStorage）
   const fileHandles = useRef<Map<string, any>>(new Map());
   const abortControllers = useRef<Map<string, AbortController[]>>(new Map());
 
@@ -25,23 +24,34 @@ const App: React.FC = () => {
     }].slice(-100));
   };
 
-  // 超线程下载逻辑
   const startSmartDownload = async (taskId: string) => {
     const task = tasks.find(t => t.id === taskId);
     const handle = fileHandles.current.get(taskId);
     if (!task || !handle) {
-      addLog(`任务 ${taskId} 缺少文件句柄，无法写入`, 'error');
+      addLog(`[Error] 任务 ${taskId} 无法启动：缺少文件句柄。`, 'error');
       return;
     }
 
-    addLog(`正在连接服务器: ${task.url}...`);
+    addLog(`[Connect] 正在请求资源: ${task.name}...`);
     
     try {
-      // 1. 探测服务器
-      const headRes = await fetch(task.url, { method: 'HEAD' });
-      const size = parseInt(headRes.headers.get('content-length') || '0');
-      const acceptRanges = headRes.headers.get('accept-ranges') === 'bytes';
-      
+      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: DownloadStatus.CONNECTING } : t));
+
+      let size = 0;
+      let acceptRanges = false;
+
+      // 1. 尝试探测服务器支持情况
+      try {
+        const headRes = await fetch(task.url, { method: 'HEAD', mode: 'cors' });
+        size = parseInt(headRes.headers.get('content-length') || '0');
+        acceptRanges = headRes.headers.get('accept-ranges') === 'bytes';
+      } catch (e) {
+        addLog(`[Warn] HEAD 探测失败 (可能是 CORS 限制)，回退至 GET 探测。`, 'warn');
+        const probeRes = await fetch(task.url, { method: 'GET', mode: 'cors' }); // 最小化请求可在此处优化，但为兼容性先 GET
+        size = parseInt(probeRes.headers.get('content-length') || '0');
+        acceptRanges = probeRes.headers.get('accept-ranges') === 'bytes';
+      }
+
       setTasks(prev => prev.map(t => t.id === taskId ? { 
         ...t, 
         size, 
@@ -51,12 +61,11 @@ const App: React.FC = () => {
 
       const writable = await handle.createWritable();
       const controllers: AbortController[] = [];
-      const threadCount = acceptRanges ? 4 : 1; // 如果支持 Range，开启4线程
+      const threadCount = acceptRanges && size > 1024 * 1024 ? 4 : 1; 
 
-      addLog(`检测到服务器${acceptRanges ? '支持' : '不支持'}断点续传。开启 ${threadCount} 个并行线程。`, 'success');
+      addLog(`[Init] 分配 ${threadCount} 个传输线程。分片下载: ${acceptRanges ? '开启' : '关闭'}`);
 
-      if (acceptRanges && size > 0) {
-        // 多线程分片逻辑
+      if (acceptRanges && size > 0 && threadCount > 1) {
         const chunkSize = Math.ceil(size / threadCount);
         const promises = Array.from({ length: threadCount }).map(async (_, i) => {
           const start = i * chunkSize;
@@ -65,63 +74,82 @@ const App: React.FC = () => {
           const controller = new AbortController();
           controllers.push(controller);
 
-          const res = await fetch(task.url, {
-            headers: { 'Range': `bytes=${start}-${end}` },
-            signal: controller.signal
-          });
+          try {
+            const res = await fetch(task.url, {
+              headers: { 'Range': `bytes=${start}-${end}` },
+              signal: controller.signal
+            });
 
-          if (!res.body) return;
-          const reader = res.body.getReader();
-          let pos = start;
+            if (!res.body) throw new Error(`线程 ${i} 响应为空`);
+            const reader = res.body.getReader();
+            let pos = start;
 
-          while(true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            // 真实写入硬盘对应偏移量
-            await writable.write({ type: 'write', data: value, position: pos });
-            pos += value.length;
-            
-            // 进度更新频率控制
-            if (Math.random() > 0.9) {
+            while(true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              await writable.write({ type: 'write', data: value, position: pos });
+              pos += value.length;
+              
+              // 更新全局下载量
               setTasks(prev => prev.map(t => {
                 if (t.id === taskId) {
                   const newDownloaded = t.downloaded + value.length;
-                  return { ...t, downloaded: newDownloaded, progress: (newDownloaded / size) * 100 };
+                  const speed = value.length / 0.1; // 粗略估算，此处可优化
+                  return { ...t, downloaded: newDownloaded, progress: (newDownloaded / size) * 100, speed };
                 }
                 return t;
               }));
             }
+          } catch (e: any) {
+            addLog(`[Error] 线程 ${i} 异常: ${e.message}`, 'error');
+            throw e;
           }
         });
 
         abortControllers.current.set(taskId, controllers);
         await Promise.all(promises);
       } else {
-        // 单线程普通流
+        // 单线程下载逻辑
+        addLog(`[Info] 使用单线程流式传输...`);
         const res = await fetch(task.url);
-        if (!res.body) throw new Error("Body is null");
+        if (!res.body) throw new Error("服务器未返回数据流");
+        
         const reader = res.body.getReader();
+        let downloaded = 0;
         while(true) {
           const { done, value } = await reader.read();
           if (done) break;
           await writable.write(value);
+          downloaded += value.length;
+          setTasks(prev => prev.map(t => t.id === taskId ? { 
+            ...t, 
+            downloaded, 
+            progress: size > 0 ? (downloaded / size) * 100 : 0,
+            speed: value.length * 10 // 简易速度计算
+          } : t));
         }
       }
 
       await writable.close();
-      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: DownloadStatus.COMPLETED, progress: 100 } : t));
-      addLog(`文件下载完成并成功写入磁盘: ${task.name}`, 'success');
+      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: DownloadStatus.COMPLETED, progress: 100, speed: 0 } : t));
+      addLog(`[Success] 任务完成: ${task.name}`, 'success');
 
     } catch (err: any) {
-      addLog(`下载失败: ${err.message}`, 'error');
-      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: DownloadStatus.ERROR } : t));
+      const isAbort = err.name === 'AbortError';
+      addLog(`[Error] 下载终止: ${isAbort ? '用户暂停' : err.message}`, isAbort ? 'warn' : 'error');
+      setTasks(prev => prev.map(t => t.id === taskId ? { 
+        ...t, 
+        status: isAbort ? DownloadStatus.PAUSED : DownloadStatus.ERROR,
+        speed: 0 
+      } : t));
+    } finally {
+      delete abortControllers.current[taskId];
     }
   };
 
   const handlePause = (id: string) => {
     abortControllers.current.get(id)?.forEach(c => c.abort());
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, status: DownloadStatus.PAUSED } : t));
-    addLog(`任务已挂起: ${id}`, 'warn');
+    addLog(`[Action] 用户挂起了任务: ${id}`, 'warn');
   };
 
   const handleAddTask = (task: DownloadTask) => {
@@ -129,7 +157,9 @@ const App: React.FC = () => {
       fileHandles.current.set(task.id, task.fileHandle);
     }
     setTasks(prev => [task, ...prev]);
-    startSmartDownload(task.id);
+    addLog(`[Action] 新建下载任务: ${task.name}`);
+    // 异步启动，防止阻塞 UI
+    setTimeout(() => startSmartDownload(task.id), 100);
   };
 
   return (
@@ -139,14 +169,14 @@ const App: React.FC = () => {
           <div className="w-5 h-5 bg-[#0078d4] rounded-sm flex items-center justify-center">
              <ICONS.Zap className="w-3 h-3 text-white" />
           </div>
-          <span className="text-[12px] text-gray-600 font-bold">云加速 - 核心传输引擎 Active</span>
+          <span className="text-[12px] text-gray-600 font-bold uppercase tracking-tight">智速引擎 (Industrial Core)</span>
         </div>
-        <div className="flex gap-4">
-           <button onClick={() => setIsConsoleOpen(!isConsoleOpen)} className="text-[11px] text-[#0078d4] hover:underline">查看日志</button>
-           <div className="flex gap-2">
-             <div className="w-3 h-3 rounded-full bg-red-400" />
-             <div className="w-3 h-3 rounded-full bg-yellow-400" />
-             <div className="w-3 h-3 rounded-full bg-green-400" />
+        <div className="flex items-center gap-4">
+           <button onClick={() => setIsConsoleOpen(!isConsoleOpen)} className={`text-[11px] px-2 py-1 rounded transition-colors ${isConsoleOpen ? 'bg-blue-600 text-white' : 'text-[#0078d4] hover:bg-blue-50'}`}>内核日志</button>
+           <div className="flex gap-1.5 ml-2">
+             <div className="w-2.5 h-2.5 rounded-full bg-gray-200" />
+             <div className="w-2.5 h-2.5 rounded-full bg-gray-200" />
+             <div className="w-2.5 h-2.5 rounded-full bg-gray-200" />
            </div>
         </div>
       </header>
@@ -163,19 +193,21 @@ const App: React.FC = () => {
         ))}
         {tasks.length === 0 && (
           <div className="h-full flex flex-col items-center justify-center text-gray-300">
-             <ICONS.Folder className="w-20 h-20 opacity-10 mb-4" />
-             <p className="text-sm">等待建立高速下载链接</p>
+             <ICONS.Search className="w-16 h-16 opacity-5 mb-4" />
+             <p className="text-sm font-medium opacity-40">等待建立数据隧道</p>
           </div>
         )}
       </main>
 
-      <footer className="px-6 py-4 bg-gray-50 border-t flex items-center justify-between">
+      <footer className="px-6 py-4 bg-gray-50 border-t flex items-center justify-between shadow-[0_-2px_10px_rgba(0,0,0,0.02)]">
         <div className="flex gap-3">
-           <button onClick={() => setIsModalOpen(true)} className="btn-fluent primary">新建下载</button>
-           <button onClick={() => setTasks([])} className="btn-fluent">清空列表</button>
+           <button onClick={() => setIsModalOpen(true)} className="btn-fluent primary px-8">新建下载</button>
+           <button onClick={() => { setTasks([]); addLog('已重置任务矩阵'); }} className="btn-fluent">清空列表</button>
         </div>
-        <div className="text-[11px] text-gray-400 font-mono">
-           ENGINE_VER: 2.1.0-STABLE | THREADS_ALLOC: {tasks.filter(t => t.status === DownloadStatus.DOWNLOADING).length * 4}
+        <div className="flex items-center gap-6 text-[10px] text-gray-400 font-mono font-bold">
+           <span>IO_STATUS: <span className="text-green-600 uppercase">Streaming</span></span>
+           <span>HANDLES: {tasks.length}</span>
+           <span>ENGINE_ID: {Math.random().toString(16).slice(2, 10).toUpperCase()}</span>
         </div>
       </footer>
 

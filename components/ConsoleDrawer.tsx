@@ -37,7 +37,7 @@ const ConsoleDrawer: React.FC<ConsoleDrawerProps> = ({ logs, isOpen }) => {
             }>
               {log.level.toUpperCase()}
             </span>
-            <span className="text-gray-400 italic">>></span>
+            <span className="text-gray-400 italic">{" >> "}</span>
             <span>{log.message}</span>
           </div>
         ))}
