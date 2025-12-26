@@ -4,40 +4,51 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>智速下载 - 极客重构版</title>
+    <title>智速下载 - 赛博控制终端</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=Noto+Sans+SC:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --accent-main: #fbbf24; /* 更加明亮的琥珀色 */
-            --accent-glow: rgba(251, 191, 36, 0.5);
-            --sidebar-width: 360px; /* 侧边栏加宽 */
-            --glass-bg: rgba(8, 10, 15, 0.85);
-            --glass-border: rgba(255, 255, 255, 0.15);
+            --accent-main: #fbbf24;
+            --accent-glow: rgba(251, 191, 36, 0.4);
+            --sidebar-width: 420px;
+            --glass-bg: rgba(6, 7, 10, 0.95);
+            --glass-border: rgba(255, 255, 255, 0.05);
+            --neon-amber: #ffb800;
+            --terminal-green: #00ff41;
         }
 
-        html { font-size: 18px; } /* 提升全局比例 */
+        html { font-size: 19px; }
 
         body {
             font-family: 'Inter', 'Noto Sans SC', sans-serif;
             overflow: hidden;
-            background-color: #050505; /* 纯黑背景提升对比度 */
+            background-color: #020204;
             color: #ffffff;
             margin: 0;
             height: 100vh;
             -webkit-font-smoothing: antialiased;
+            perspective: 1200px;
         }
 
-        #art-engine {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 0; pointer-events: none;
+        /* 极客纹理与噪点 */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(251, 191, 36, 0.03) 0%, transparent 80%),
+                url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3BaseFilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/feTurbulence%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+            opacity: 0.06;
+            pointer-events: none;
+            z-index: 100;
         }
 
         .glass-panel {
             background: var(--glass-bg);
-            backdrop-filter: blur(40px) saturate(200%);
-            border: 2px solid var(--glass-border);
-            box-shadow: 0 40px 80px -20px rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(60px) saturate(220%);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 60px 120px -30px rgba(0, 0, 0, 1);
         }
 
         .shimmer-text {
@@ -45,38 +56,61 @@
             background-size: 200% auto;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            animation: shimmer 4s infinite linear;
+            animation: shimmer 5s infinite ease-in-out;
+            letter-spacing: -0.05em;
         }
 
-        @keyframes shimmer { to { background-position: 200% center; } }
+        @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
 
-        .juicy-button {
-            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 900;
-            text-transform: uppercase;
+        .cyber-button {
+            transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+            position: relative;
+            background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 100%);
+            border: 1px solid rgba(255,255,255,0.1);
         }
-        .juicy-button:hover { transform: translateY(-4px); filter: brightness(1.2); }
-        .juicy-button:active { transform: translateY(2px) scale(0.9); }
+        .cyber-button:hover { 
+            background: var(--accent-main); 
+            color: #000; 
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 20px 40px -10px var(--accent-glow);
+        }
+        .cyber-button:active { transform: translateY(2px) scale(0.98); }
 
-        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 20px; }
+        .geek-input {
+            background: rgba(0, 0, 0, 0.4);
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s;
+        }
+        .geek-input:focus {
+            border-bottom-color: var(--accent-main);
+            background: rgba(255, 255, 255, 0.03);
+            box-shadow: 0 10px 20px -10px var(--accent-glow);
+        }
 
-        .mono-data { font-family: 'JetBrains Mono', monospace; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 10px; }
+
+        .mono-data { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
         
-        .ai-switch {
-          width: 80px; height: 40px; background: rgba(255,255,255,0.1);
-          border-radius: 99px; position: relative; cursor: pointer;
-          border: 2px solid rgba(255,255,255,0.2);
+        /* 扫描线效果增强 */
+        .scanlines {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: 
+                linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%),
+                linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            background-size: 100% 3px, 4px 100%;
+            z-index: 101; pointer-events: none;
+            opacity: 0.4;
         }
-        .ai-switch.active { background: var(--accent-main); }
-        .ai-knob {
-          width: 32px; height: 32px; border-radius: 50%; position: absolute;
-          top: 2px; left: 4px; transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+        /* 3D 卡片效果 */
+        .card-3d {
+            transition: transform 0.4s ease-out;
+            transform-style: preserve-3d;
         }
-        .ai-switch.active .ai-knob { left: 40px; }
+        .card-3d:hover {
+            transform: rotateX(2deg) rotateY(-2deg) translateZ(20px);
+        }
     </style>
 <script type="importmap">
 {
@@ -92,9 +126,7 @@
 </script>
 </head>
 <body>
-    <div id="art-engine">
-        <div style="position: absolute; inset: 0; background: radial-gradient(circle at 0% 0%, #1e1b12 0%, transparent 50%);"></div>
-    </div>
-    <div id="root" class="w-full h-full"></div>
+    <div class="scanlines"></div>
+    <div id="root" class="w-full h-full relative z-10"></div>
 </body>
 </html>
