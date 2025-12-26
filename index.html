@@ -6,56 +6,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>智速下载 - 极客重构版</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Noto+Sans+SC:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=Noto+Sans+SC:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --accent-main: #f59e0b;
-            --sidebar-width: 320px; /* 加宽侧边栏以适应大字体 */
-            --glass-bg: rgba(255, 255, 255, 0.08);
+            --accent-main: #fbbf24; /* 更加明亮的琥珀色 */
+            --accent-glow: rgba(251, 191, 36, 0.5);
+            --sidebar-width: 360px; /* 侧边栏加宽 */
+            --glass-bg: rgba(8, 10, 15, 0.85);
             --glass-border: rgba(255, 255, 255, 0.15);
         }
 
-        html { font-size: 18px; } /* 全局基准放大 */
+        html { font-size: 18px; } /* 提升全局比例 */
 
         body {
             font-family: 'Inter', 'Noto Sans SC', sans-serif;
             overflow: hidden;
-            background-color: #0c0f17; /* 深海蓝调底色，非纯黑 */
-            color: #fff;
+            background-color: #050505; /* 纯黑背景提升对比度 */
+            color: #ffffff;
             margin: 0;
             height: 100vh;
+            -webkit-font-smoothing: antialiased;
         }
 
         #art-engine {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 0; pointer-events: none; overflow: hidden;
+            z-index: 0; pointer-events: none;
         }
 
-        /* 琥珀数字：背景光效增强 */
-        .env-amber_digital #art-engine {
-            background: radial-gradient(circle at 50% 50%, #2d1e0d 0%, #0c0f17 100%);
-        }
-        .env-amber_digital .scan-lines {
-            position: absolute; inset: 0;
-            background: linear-gradient(rgba(245, 158, 11, 0.08) 50%, rgba(0, 0, 0, 0.2) 50%);
-            background-size: 100% 6px;
-        }
-
-        /* 极光模式：大幅度提升亮度与对比 */
-        .env-ethereal_vapor #art-engine {
-            background: linear-gradient(215deg, #1e1b4b 0%, #0c0f17 100%);
-        }
-        .aurora {
-            position: absolute; width: 180vw; height: 180vh;
-            filter: blur(100px); opacity: 0.7; mix-blend-mode: screen;
-        }
-
-        /* UI 组件层级：高亮卡片 */
         .glass-panel {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(50px) saturate(200%);
-            border: 2px solid rgba(255, 255, 255, 0.12); /* 边框加粗 */
-            box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.8);
+            background: var(--glass-bg);
+            backdrop-filter: blur(40px) saturate(200%);
+            border: 2px solid var(--glass-border);
+            box-shadow: 0 40px 80px -20px rgba(0, 0, 0, 0.8);
         }
 
         .shimmer-text {
@@ -63,37 +45,55 @@
             background-size: 200% auto;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            animation: shimmer 5s infinite linear;
+            animation: shimmer 4s infinite linear;
         }
 
         @keyframes shimmer { to { background-position: 200% center; } }
 
         .juicy-button {
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            text-transform: uppercase;
         }
-        .juicy-button:hover { transform: scale(1.05); }
-        .juicy-button:active { transform: scale(0.95); }
+        .juicy-button:hover { transform: translateY(-4px); filter: brightness(1.2); }
+        .juicy-button:active { transform: translateY(2px) scale(0.9); }
 
         .custom-scrollbar::-webkit-scrollbar { width: 8px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 20px; }
+
+        .mono-data { font-family: 'JetBrains Mono', monospace; }
+        
+        .ai-switch {
+          width: 80px; height: 40px; background: rgba(255,255,255,0.1);
+          border-radius: 99px; position: relative; cursor: pointer;
+          border: 2px solid rgba(255,255,255,0.2);
+        }
+        .ai-switch.active { background: var(--accent-main); }
+        .ai-knob {
+          width: 32px; height: 32px; border-radius: 50%; position: absolute;
+          top: 2px; left: 4px; transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+        .ai-switch.active .ai-knob { left: 40px; }
     </style>
 <script type="importmap">
 {
   "imports": {
-    "react/": "https://esm.sh/react@^19.2.3/",
     "react": "https://esm.sh/react@^19.2.3",
+    "react-dom": "https://esm.sh/react-dom@^19.2.3",
+    "react-dom/client": "https://esm.sh/react-dom@^19.2.3/client",
+    "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "@google/genai": "https://esm.sh/@google/genai@^1.34.0"
+    "react/": "https://esm.sh/react@^19.2.3/"
   }
 }
 </script>
 </head>
-<body class="env-amber_digital">
+<body>
     <div id="art-engine">
-        <div class="grid-art"></div>
-        <div class="scan-lines"></div>
-        <div class="aurora" style="background: radial-gradient(circle at 10% 10%, #6366f1, transparent 70%);"></div>
-        <div class="aurora" style="background: radial-gradient(circle at 90% 90%, #d946ef, transparent 70%); animation-delay: -5s;"></div>
+        <div style="position: absolute; inset: 0; background: radial-gradient(circle at 0% 0%, #1e1b12 0%, transparent 50%);"></div>
     </div>
     <div id="root" class="w-full h-full"></div>
 </body>

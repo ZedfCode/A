@@ -19,23 +19,12 @@ const NewTaskModal: React.FC<NewTaskModalProps> = ({ isOpen, onClose, onAddTask,
   const [aiEnabled, setAiEnabled] = useState(aiByDefault);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [customName, setCustomName] = useState('');
-  const [threadLimit, setThreadLimit] = useState(64);
+  const [threadLimit, setThreadLimit] = useState(128);
 
   useEffect(() => {
-    if (!isOpen) { setUrlInput(''); setCustomName(''); setIsAnalyzing(false); }
+    if (!isOpen) { setUrlInput(''); setCustomName(''); }
     setAiEnabled(aiByDefault);
   }, [isOpen, aiByDefault]);
-
-  const handleUrlChange = async (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const val = e.target.value;
-    setUrlInput(val);
-    if (aiEnabled && val.length > 15) {
-      setIsAnalyzing(true);
-      const res = await geminiService.analyzeUrl(val);
-      setCustomName(res.suggestedName);
-      setIsAnalyzing(false);
-    }
-  };
 
   const handleStart = () => {
     if (!urlInput.trim()) return;
@@ -43,21 +32,21 @@ const NewTaskModal: React.FC<NewTaskModalProps> = ({ isOpen, onClose, onAddTask,
       id: Math.random().toString(36).substr(2, 9),
       url: urlInput,
       name: customName || urlInput.split('/').pop() || '新建下载任务',
-      size: 1024 * 1024 * (Math.random() * 1000 + 100),
+      size: 1024 * 1024 * (Math.random() * 2000 + 500),
       downloaded: 0,
-      status: DownloadStatus.QUEUED,
+      status: DownloadStatus.DOWNLOADING,
       type: FileType.OTHER,
       protocol: 'HTTP',
       progress: 0,
       speed: 0,
       threads: 0,
       maxThreads: threadLimit,
-      priority: Priority.NORMAL,
+      priority: Priority.HIGH,
       addedAt: Date.now(),
       isResumable: true,
-      bitfield: new Array(64).fill(0),
-      safetyScore: 100,
-      securityReport: "内核验证通过",
+      bitfield: new Array(128).fill(0),
+      safetyScore: 98,
+      securityReport: "AI 深度验证安全",
       speedHistory: [],
       retries: 0,
       peerCount: 0,
@@ -69,61 +58,62 @@ const NewTaskModal: React.FC<NewTaskModalProps> = ({ isOpen, onClose, onAddTask,
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-10">
-      <div className="absolute inset-0 bg-black/85 backdrop-blur-3xl" onClick={onClose} />
-      <div className="relative glass-panel rounded-[5rem] w-full max-w-3xl p-16 flex flex-col border border-white/20 shadow-4xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-12">
+      <div className="absolute inset-0 bg-black/90 backdrop-blur-3xl" onClick={onClose} />
+      <div className="relative glass-panel rounded-[4rem] w-full max-w-4xl p-20 flex flex-col border-2 border-white/20">
         <div className="flex justify-between items-center mb-16">
           <div>
-            <h3 className="text-5xl font-black italic uppercase tracking-tighter mb-4 text-white">建立隧道</h3>
-            <p className="text-sm font-black uppercase text-white/30 tracking-[0.6em]">超线程架构初始化</p>
+            <h3 className="text-6xl font-black italic uppercase tracking-tighter mb-4 text-white">建立数据隧道</h3>
+            <p className="text-sm font-black uppercase text-white/30 tracking-[1em]">Hyper-Thread Matrix Init</p>
           </div>
           <div 
-            className={`ai-switch scale-150 ${aiEnabled ? 'active' : ''}`}
+            className={`ai-switch scale-[1.5] ${aiEnabled ? 'active' : ''}`}
             onClick={() => setAiEnabled(!aiEnabled)}
           >
-            <div className="ai-knob bg-white"><ICONS.Brain className="w-6 h-6 text-black"/></div>
+            <div className="ai-knob bg-white flex items-center justify-center shadow-2xl">
+              <ICONS.Brain className="w-6 h-6 text-black"/>
+            </div>
           </div>
         </div>
 
-        <div className="space-y-12">
+        <div className="space-y-16">
           <textarea 
             placeholder="粘贴目标 URL / Magnet / Torrent..."
-            className="w-full h-64 bg-black/40 border border-white/10 rounded-[3rem] p-10 font-mono text-xl outline-none focus:border-[var(--accent-main)]/50 resize-none transition-all placeholder:text-white/10"
+            className="w-full h-80 bg-black/50 border-2 border-white/10 rounded-[3rem] p-12 font-mono text-2xl outline-none focus:border-[var(--accent-main)]/50 resize-none transition-all placeholder:text-white/5"
             value={urlInput}
-            onChange={handleUrlChange}
+            onChange={e => setUrlInput(e.target.value)}
           />
 
-          <div className="grid grid-cols-2 gap-10">
-             <div className="space-y-4">
-                <label className="text-xs font-black uppercase text-white/40 tracking-widest block">线程配额</label>
+          <div className="grid grid-cols-2 gap-12">
+             <div className="space-y-6">
+                <label className="text-xs font-black uppercase text-white/30 tracking-[0.5em] block ml-6">线程吞吐配额</label>
                 <select 
-                  className="w-full bg-white/5 border border-white/10 rounded-3xl px-8 py-6 font-black text-xl outline-none appearance-none cursor-pointer hover:bg-white/10"
+                  className="w-full bg-white/5 border-2 border-white/10 rounded-[2.5rem] px-10 py-8 font-black text-2xl outline-none appearance-none cursor-pointer hover:bg-white/10 text-white"
                   value={threadLimit}
                   onChange={e => setThreadLimit(Number(e.target.value))}
                 >
-                  <option value={16}>16 (省流)</option>
-                  <option value={64}>64 (默认加速)</option>
-                  <option value={128}>128 (狂暴下载)</option>
-                  <option value={256}>256 (集群吞吐)</option>
+                  <option value={64}>64x Standard</option>
+                  <option value={128}>128x High-Speed</option>
+                  <option value={256}>256x Hyper-Drive</option>
+                  <option value={512}>512x Matrix-Thrust</option>
                 </select>
              </div>
-             <div className="space-y-4">
-                <label className="text-xs font-black uppercase text-white/40 tracking-widest block">重命名文件</label>
+             <div className="space-y-6">
+                <label className="text-xs font-black uppercase text-white/30 tracking-[0.5em] block ml-6">资源镜像重命名</label>
                 <input 
-                  className="w-full bg-white/5 border border-white/10 rounded-3xl px-8 py-6 font-black text-xl outline-none hover:bg-white/10"
+                  className="w-full bg-white/5 border-2 border-white/10 rounded-[2.5rem] px-10 py-8 font-black text-2xl outline-none hover:bg-white/10 text-white"
                   value={customName}
                   onChange={e => setCustomName(e.target.value)}
-                  placeholder={isAnalyzing ? "AI 识别中..." : "保持默认"}
+                  placeholder="保持原始元数据"
                 />
              </div>
           </div>
 
           <button 
             onClick={handleStart}
-            disabled={!urlInput || isAnalyzing}
-            className="w-full py-10 bg-[var(--accent-main)] text-black rounded-[4rem] font-black text-xl uppercase tracking-[0.5em] shadow-2xl juicy-button disabled:opacity-20 active:brightness-150"
+            className="w-full py-12 bg-[var(--accent-main)] text-black rounded-[3rem] font-black text-2xl uppercase tracking-[0.6em] shadow-4xl juicy-button active:brightness-150"
           >
-            建立高并发下载通道
+            开启全量吞吐
           </button>
         </div>
       </div>

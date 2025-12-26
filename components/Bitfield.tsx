@@ -8,16 +8,16 @@ interface BitfieldProps {
 
 const Bitfield: React.FC<BitfieldProps> = ({ data, status }) => {
   return (
-    <div className="flex flex-wrap gap-[1px] bg-slate-100 dark:bg-slate-800/50 p-1 rounded-md">
+    <div className="flex flex-wrap gap-1 bg-black/50 p-2.5 rounded-xl border border-white/5">
       {data.map((state, i) => (
         <div 
           key={i} 
-          className={`w-1.5 h-1.5 rounded-[1px] transition-all duration-300 ${
+          className={`w-2.5 h-2.5 rounded-[2px] transition-all duration-700 ${
             state === 2 
-              ? (status === 'COMPLETED' ? 'bg-emerald-500 shadow-[0_0_2px_rgba(16,185,129,0.3)]' : 'bg-blue-500 shadow-[0_0_2px_rgba(59,130,246,0.3)]') 
+              ? (status === 'COMPLETED' ? 'bg-emerald-500/80 shadow-[0_0_6px_rgba(16,185,129,0.3)]' : 'bg-[var(--accent-main)] shadow-[0_0_8px_var(--accent-glow)]') 
               : state === 1
-              ? 'bg-blue-400 animate-pulse'
-              : 'bg-slate-200 dark:bg-slate-700/50'
+              ? 'bg-blue-400 animate-pulse shadow-[0_0_5px_rgba(96,165,250,0.6)] scale-105'
+              : 'bg-white/[0.03]'
           }`} 
         />
       ))}
