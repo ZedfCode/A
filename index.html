@@ -1,0 +1,127 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智速下载 - 极客重构版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Noto+Sans+SC:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --accent-main: #f59e0b;
+            --sidebar-width: 280px;
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+        }
+
+        body {
+            font-family: 'Inter', 'Noto Sans SC', sans-serif;
+            overflow: hidden;
+            background-color: #000;
+            color: #fff;
+            margin: 0;
+            height: 100vh;
+        }
+
+        /* --- 背景引擎容器 --- */
+        #art-engine {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1; pointer-events: none; overflow: hidden;
+            transition: all 1s ease;
+        }
+
+        /* --- 方案 A: 琥珀工业扫描 (Amber Digital) --- */
+        .env-amber_digital #art-engine {
+            background: linear-gradient(135deg, #1a0f02 0%, #050402 100%);
+        }
+        .env-amber_digital .scan-lines {
+            position: absolute; inset: 0;
+            background: linear-gradient(rgba(18, 16, 1, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 4px, 3px 100%;
+            pointer-events: none;
+        }
+        .env-amber_digital .grid-art {
+            position: absolute; inset: 0;
+            background-image: radial-gradient(circle at 1px 1px, rgba(245, 158, 11, 0.1) 1px, transparent 0);
+            background-size: 40px 40px;
+        }
+
+        /* --- 方案 B: 梦幻流体极境 (Ethereal Vapor) --- */
+        .env-ethereal_vapor #art-engine {
+            background: linear-gradient(215deg, #0b1121 0%, #170d2b 100%);
+        }
+        .aurora {
+            position: absolute; width: 150vw; height: 150vh;
+            background: radial-gradient(circle at 50% 50%, rgba(168, 85, 247, 0.2), rgba(59, 130, 246, 0.1), transparent 70%);
+            top: -25%; left: -25%;
+            animation: aurora-move 40s infinite alternate ease-in-out;
+            filter: blur(100px);
+        }
+        @keyframes aurora-move {
+            0% { transform: translate(0, 0) rotate(0deg) scale(1); }
+            100% { transform: translate(10%, 15%) rotate(15deg) scale(1.2); }
+        }
+
+        /* --- 方案 C: 蓝图坐标空间 (Blueprint / Monolith) --- */
+        .env-monolith_dark #art-engine {
+            background-color: #020617;
+            background-image: 
+                linear-gradient(rgba(30, 58, 138, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(30, 58, 138, 0.1) 1px, transparent 1px);
+            background-size: 60px 60px;
+        }
+        .env-monolith_dark .blueprint-axis {
+            position: absolute; top: 10%; left: 5%;
+            width: 200px; height: 2px;
+            background: linear-gradient(90deg, rgba(59, 130, 246, 0.5), transparent);
+        }
+
+        /* --- UI 深度细节 --- */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(25px);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .shimmer-text {
+            background: linear-gradient(90deg, #fff 0%, var(--accent-main) 50%, #fff 100%);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: shimmer 5s infinite linear;
+        }
+        @keyframes shimmer { to { background-position: 200% center; } }
+
+        .juicy-button {
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .juicy-button:active { transform: scale(0.95); }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.34.0"
+  }
+}
+</script>
+</head>
+<body class="env-amber_digital">
+    <div id="art-engine">
+        <!-- 动态背景层级将根据 body class 显示/隐藏 -->
+        <div class="grid-art"></div>
+        <div class="scan-lines"></div>
+        <div class="aurora" style="background: radial-gradient(circle at 20% 30%, rgba(59, 130, 246, 0.2), transparent 60%);"></div>
+        <div class="aurora" style="background: radial-gradient(circle at 80% 70%, rgba(168, 85, 247, 0.15), transparent 60%); animation-delay: -10s;"></div>
+        <div class="blueprint-axis"></div>
+    </div>
+    <div id="root" class="relative z-10 w-full h-full"></div>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{
+  "name": "智速下载 (SmartSpeed Downloader) - Remastered",
+  "description": "极客级别的网页下载管理器。支持 Bitfield 视图、P2P 健康度监控、AI 深度嗅探、哈希校验及自动化 Hook 脚本。",
+  "requestFramePermissions": [
+    "clipboard-read"
+  ]
+}
