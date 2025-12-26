@@ -68,8 +68,9 @@ const translations = {
   }
 };
 
-export const t = (key: keyof typeof translations.zh, lang: Language, params?: Record<string, any>): string => {
-  let text = translations[lang]?.[key] || key;
+export const t = (key: string, lang: Language, params?: Record<string, any>): string => {
+  const dict = translations[lang] || translations['zh'];
+  let text = (dict as any)[key] || key;
   if (params) {
     Object.keys(params).forEach(p => {
       text = text.replace(`{${p}}`, params[p]);
