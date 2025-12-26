@@ -90,6 +90,21 @@ const translations = {
     bitfield_label: "分段进度图 (Bitfield)",
     health_label: "健康度",
     tracker_label: "追踪器",
+    // Added missing keys used in TaskCard and App
+    copy_link: "复制链接",
+    verify_hash: "校验哈希",
+    open_folder: "打开目录",
+    start_all: "全部开始",
+    pause_all: "全部挂起",
+    clear_finished: "清除已完成",
+    sort_by: "排序方式",
+    sort_time: "时间",
+    sort_size: "大小",
+    sort_progress: "进度",
+    export_to_local: "导出到磁盘",
+    priority: "优先级",
+    active_tunnels: "活跃隧道",
+    avg_latency: "平均延迟"
   },
   en: {
     app_name: "SmartSpeed",
@@ -179,6 +194,21 @@ const translations = {
     bitfield_label: "Bitfield Map",
     health_label: "Health",
     tracker_label: "Trackers",
+    // Added missing keys used in TaskCard and App
+    copy_link: "Copy Link",
+    verify_hash: "Verify Hash",
+    open_folder: "Open Folder",
+    start_all: "Start All",
+    pause_all: "Pause All",
+    clear_finished: "Clear Finished",
+    sort_by: "Sort",
+    sort_time: "Time",
+    sort_size: "Size",
+    sort_progress: "Progress",
+    export_to_local: "Export Local",
+    priority: "Priority",
+    active_tunnels: "Active Tunnels",
+    avg_latency: "Latency"
   }
 };
 
